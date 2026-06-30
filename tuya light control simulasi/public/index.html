@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Kontrol Lampu Tuya</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="topbar">
+        <div>
+          <p class="eyebrow">Tuya Cloud</p>
+          <h1>Kontrol Lampu Otomatis</h1>
+        </div>
+        <div class="status-pill" id="cloudStatus">Memuat</div>
+      </section>
+
+      <section class="layout">
+        <div class="panel devices-panel">
+          <div class="panel-head">
+            <div>
+              <h2>Lampu</h2>
+              <p id="deviceHint">Status perangkat akan muncul di sini.</p>
+            </div>
+            <button class="icon-button" id="refreshBtn" title="Segarkan status">↻</button>
+          </div>
+          <div class="device-grid" id="deviceGrid"></div>
+        </div>
+
+        <aside class="side-stack">
+          <section class="panel schedule-panel">
+            <h2>Booking</h2>
+            <form id="bookingForm">
+              <label>
+                Nama
+                <input id="bookingTitle" type="text" placeholder="Meeting / Tamu / Kelas" required>
+              </label>
+              <label>
+                Lampu
+                <select id="bookingDevice" required></select>
+              </label>
+              <label>
+                Tanggal
+                <input id="bookingDate" type="date" required>
+              </label>
+              <div class="time-grid">
+                <label>
+                  Mulai
+                  <input id="bookingStart" type="time" required>
+                </label>
+                <label>
+                  Selesai
+                  <input id="bookingEnd" type="time" required>
+                </label>
+              </div>
+              <button class="primary" type="submit">Tambah Booking</button>
+            </form>
+            <div class="schedule-list" id="bookingList"></div>
+          </section>
+
+          <section class="panel schedule-panel">
+            <h2>Jadwal Harian</h2>
+            <form id="scheduleForm">
+              <label>
+                Lampu
+                <select id="scheduleDevice" required></select>
+              </label>
+              <label>
+                Jam
+                <input id="scheduleTime" type="time" required>
+              </label>
+              <div class="segmented" role="group" aria-label="Aksi jadwal">
+                <label><input type="radio" name="action" value="on" checked><span>ON</span></label>
+                <label><input type="radio" name="action" value="off"><span>OFF</span></label>
+              </div>
+              <div class="days" id="dayPicker"></div>
+              <button class="primary" type="submit">Tambah Jadwal</button>
+            </form>
+            <div class="schedule-list" id="scheduleList"></div>
+          </section>
+        </aside>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>
