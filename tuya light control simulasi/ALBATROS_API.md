@@ -53,6 +53,8 @@ Jika UI Flutter/Swing menampilkan label lain, backend tetap harus menerima/menyi
 
 ## Arsitektur Final
 
+![Alur integrasi booking lampu](docs/scalable-lapang-flow.svg)
+
 ```text
 Swing App / Booking System
         |

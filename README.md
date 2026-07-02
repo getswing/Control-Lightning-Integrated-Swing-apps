@@ -15,6 +15,8 @@ Fokus implementasi saat ini adalah simulasi backend untuk booking lapang. Target
 
 ## Arsitektur Target
 
+![Alur integrasi booking lampu](tuya%20light%20control%20simulasi/docs/scalable-lapang-flow.svg)
+
 ```text
 Swing Apps / Booking System
         |

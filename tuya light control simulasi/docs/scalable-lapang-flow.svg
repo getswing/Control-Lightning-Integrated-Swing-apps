@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="860" viewBox="0 0 1280 860" role="img" aria-labelledby="title desc">
+  <title id="title">Alur Integrasi Booking Lampu Lapang</title>
+  <desc id="desc">Diagram alur Flutter Swing Apps ke Backend AWS, database mapping, worker 5 detik, Tuya Cloud, Bardi 2 Gang, dan lampu lapang.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f7f8fb; }
+      .card { fill: #ffffff; stroke: #ccd3df; stroke-width: 2; rx: 12; }
+      .card-strong { fill: #f0f6ff; stroke: #3b82f6; stroke-width: 2; rx: 12; }
+      .card-warn { fill: #fff7ed; stroke: #f97316; stroke-width: 2; rx: 12; }
+      .card-ok { fill: #ecfdf5; stroke: #10b981; stroke-width: 2; rx: 12; }
+      .title { font-family: Arial, sans-serif; font-size: 34px; font-weight: 700; fill: #111827; }
+      .subtitle { font-family: Arial, sans-serif; font-size: 18px; fill: #4b5563; }
+      .h { font-family: Arial, sans-serif; font-size: 20px; font-weight: 700; fill: #111827; }
+      .p { font-family: Arial, sans-serif; font-size: 15px; fill: #374151; }
+      .small { font-family: Arial, sans-serif; font-size: 13px; fill: #4b5563; }
+      .code { font-family: Consolas, "Courier New", monospace; font-size: 14px; fill: #1f2937; }
+      .arrow { stroke: #64748b; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .arrow-ok { stroke: #059669; stroke-width: 3; fill: none; marker-end: url(#arrow-ok); }
+      .arrow-warn { stroke: #ea580c; stroke-width: 3; fill: none; marker-end: url(#arrow-warn); stroke-dasharray: 8 7; }
+      .section { font-family: Arial, sans-serif; font-size: 14px; font-weight: 700; fill: #6b7280; letter-spacing: .8px; }
+    </style>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#64748b"/>
+    </marker>
+    <marker id="arrow-ok" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#059669"/>
+    </marker>
+    <marker id="arrow-warn" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#ea580c"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="1280" height="860"/>
+
+  <text x="56" y="58" class="title">Alur Integrasi Booking Lampu Lapang</text>
+  <text x="56" y="88" class="subtitle">Flutter Swing Apps kirim booking lapang. Backend AWS yang menyimpan mapping Tuya dan menjaga lampu tetap ON selama booking aktif.</text>
+
+  <text x="56" y="134" class="section">CLIENT</text>
+  <rect x="56" y="152" width="250" height="118" class="card-strong"/>
+  <text x="82" y="188" class="h">Flutter Swing Apps</text>
+  <text x="82" y="218" class="p">User pilih jadwal lapang</text>
+  <text x="82" y="244" class="code">venueCode + fieldCode</text>
+
+  <text x="392" y="134" class="section">BACKEND AWS</text>
+  <rect x="392" y="152" width="260" height="118" class="card-strong"/>
+  <text x="418" y="188" class="h">Booking API</text>
+  <text x="418" y="218" class="p">Validasi booking</text>
+  <text x="418" y="244" class="code">albatros + lapang_1</text>
+
+  <rect x="724" y="132" width="380" height="186" class="card"/>
+  <text x="750" y="168" class="h">Database Mapping</text>
+  <text x="750" y="198" class="p">venues: albatros, melati, cihuni, ...</text>
+  <text x="750" y="224" class="p">fields: lapang_1 sampai lapang_8</text>
+  <text x="750" y="250" class="p">bookings: start_at, end_at, status</text>
+  <text x="750" y="276" class="p">light_bindings: device_id + dp_code</text>
+
+  <rect x="392" y="386" width="260" height="142" class="card-ok"/>
+  <text x="418" y="422" class="h">Light Worker</text>
+  <text x="418" y="452" class="p">Jalan setiap 5 detik</text>
+  <text x="418" y="478" class="p">Cek booking aktif</text>
+  <text x="418" y="504" class="p">Enforce ON jika lampu OFF</text>
+
+  <text x="724" y="374" class="section">TUYA & DEVICE</text>
+  <rect x="724" y="386" width="250" height="142" class="card"/>
+  <text x="750" y="422" class="h">Tuya Cloud API</text>
+  <text x="750" y="452" class="p">Token + HMAC signing</text>
+  <text x="750" y="478" class="p">Get status lampu</text>
+  <text x="750" y="504" class="p">Send ON/OFF command</text>
+
+  <rect x="1030" y="386" width="198" height="142" class="card"/>
+  <text x="1054" y="422" class="h">Bardi 2 Gang</text>
+  <text x="1054" y="452" class="p">switch_1 -> Lapang 1</text>
+  <text x="1054" y="478" class="p">switch_2 -> Lapang 2</text>
+  <text x="1054" y="504" class="small">1 device = 2 lapang</text>
+
+  <rect x="1030" y="610" width="198" height="118" class="card-ok"/>
+  <text x="1054" y="646" class="h">Lampu Lapang</text>
+  <text x="1054" y="676" class="p">ON saat booking</text>
+  <text x="1054" y="702" class="p">OFF saat selesai</text>
+
+  <rect x="56" y="610" width="596" height="118" class="card-warn"/>
+  <text x="82" y="646" class="h">Manual OFF Saat Booking</text>
+  <text x="82" y="676" class="p">Jika user mematikan saklar saat booking masih aktif, worker cek status lalu menyalakan kembali maksimal sekitar 5 detik.</text>
+  <text x="82" y="704" class="code">booking aktif + lampu OFF -> command ON</text>
+
+  <rect x="724" y="610" width="250" height="118" class="card"/>
+  <text x="750" y="646" class="h">Audit Log</text>
+  <text x="750" y="676" class="p">turn_on / turn_off / enforce_on</text>
+  <text x="750" y="702" class="p">success, error, timestamp</text>
+
+  <path d="M306 211 L392 211" class="arrow"/>
+  <path d="M652 211 L724 211" class="arrow"/>
+  <path d="M914 318 L914 352 Q914 386 652 454" class="arrow"/>
+  <path d="M652 457 L724 457" class="arrow-ok"/>
+  <path d="M974 457 L1030 457" class="arrow"/>
+  <path d="M1129 528 L1129 610" class="arrow-ok"/>
+  <path d="M522 528 L522 584 Q522 610 652 646 Q692 657 724 669" class="arrow"/>
+  <path d="M1030 669 L974 669" class="arrow"/>
+  <path d="M1030 669 C840 590 780 540 652 492" class="arrow-warn"/>
+  <path d="M354 610 C354 560 392 528 438 506" class="arrow-warn"/>
+
+  <text x="326" y="194" class="small">POST booking</text>
+  <text x="660" y="194" class="small">save & resolve</text>
+  <text x="666" y="439" class="small">status / command</text>
+  <text x="982" y="439" class="small">device channel</text>
+  <text x="1138" y="570" class="small">relay</text>
+  <text x="780" y="588" class="small">write event</text>
+
+  <rect x="56" y="778" width="1172" height="42" fill="#e5e7eb" rx="10"/>
+  <text x="82" y="805" class="small">Catatan: Flutter tidak menyimpan Tuya client secret, device ID, atau DP code. Semua credential dan mapping berada di Backend AWS.</text>
+</svg>
