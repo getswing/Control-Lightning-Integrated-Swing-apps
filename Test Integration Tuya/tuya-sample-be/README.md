@@ -15,7 +15,7 @@ PORT=3000
 TUYA_ENDPOINT=https://openapi-sg.iotbing.com
 TUYA_CLIENT_ID=isi_client_id_tuya
 TUYA_CLIENT_SECRET=isi_client_secret_tuya
-TUYA_DEFAULT_DEVICE_ID=a38c2d491bb95114f4w9cb
+TUYA_DEFAULT_DEVICE_ID=isi_device_id_tuya
 ```
 
 Jalankan:
@@ -75,7 +75,7 @@ curl -X POST http://localhost:3000/tuya/device/shadow/properties \
 Atau pakai explicit device id:
 
 ```bash
-curl -X POST http://localhost:3000/tuya/devices/a38c2d491bb95114f4w9cb/shadow/properties \
+curl -X POST http://localhost:3000/tuya/devices/isi_device_id_tuya/shadow/properties \
   -H "Content-Type: application/json" \
   -d '{"properties":{"switch_1":false}}'
 ```
