@@ -1,6 +1,6 @@
-# Dokumentasi Integrasi Lampu Booking Albatros
+# Dokumentasi Integrasi Lampu Booking
 
-Dokumen ini menjelaskan kontrak integrasi untuk kontrol lampu lapang Albatros menggunakan Tuya Cloud dan Bardi 2 Gang.
+Dokumen ini menjelaskan kontrak integrasi untuk kontrol lampu booking lapang menggunakan Tuya Cloud dan Bardi 2 Gang.
 
 Dokumen ini ditujukan untuk tim backend AWS dan tim client Swing app. Device ID Tuya asli tidak perlu diketahui oleh Swing app atau service lain di luar backend AWS.
 
@@ -14,7 +14,42 @@ Perilaku utama:
 - Saat booking selesai, lampu lapang otomatis OFF.
 - Selama booking masih aktif, backend cek status lampu setiap 5 detik.
 - Jika ada user mematikan saklar manual di tengah booking, backend otomatis menyalakan lampu lagi.
-- Swing app dan sistem booking cukup memakai alias lapang, bukan device ID Tuya.
+- Swing app dan sistem booking cukup memakai `venueCode` + `fieldCode`, bukan device ID Tuya.
+- Field canonical memakai konsep `lapang_1`, `lapang_2`, dan seterusnya.
+
+## Konsep Multi Venue
+
+Sistem production harus mendukung banyak gedung/venue. Setiap venue bisa punya jumlah lapang berbeda, misalnya:
+
+| Venue | `venueCode` | Contoh jumlah lapang |
+|---|---|---:|
+| Albatros | `albatros` | 6 |
+| Melati | `melati` | 4 |
+| Cihuni | `cihuni` | 8 |
+| Cigaten | `cigaten` | 4-8 |
+| Mawar | `mawar` | 4-8 |
+| Kantil | `kantil` | 4-8 |
+
+Gunakan field canonical berikut:
+
+```text
+lapang_1
+lapang_2
+lapang_3
+...
+lapang_8
+```
+
+Jadi kombinasi unik lapang adalah:
+
+```text
+albatros + lapang_1
+albatros + lapang_6
+melati   + lapang_4
+cihuni   + lapang_8
+```
+
+Jika UI Flutter/Swing menampilkan label lain, backend tetap harus menerima/menyimpan mapping canonical sebagai `lapang_N`.
 
 ## Arsitektur Final
 
@@ -30,10 +65,10 @@ Backend AWS
 Tuya Cloud
         |
         v
-Bardi 2 Gang Switch
+Bardi 2 Gang Switch / device lampu lain
         |
-        +-- switch_1 -> Albatros - Lapang 1
-        +-- switch_2 -> Albatros - Lapang 2
+        +-- switch_1 -> Venue - Lapang ganjil
+        +-- switch_2 -> Venue - Lapang genap
 ```
 
 Catatan penting:
@@ -41,25 +76,101 @@ Catatan penting:
 - Tuya credential hanya disimpan di backend AWS.
 - Jangan taruh `TUYA_CLIENT_SECRET` di Swing app.
 - Jangan expose device ID Tuya ke client.
-- Client cukup memakai alias seperti `albatros_lapang_1`.
+- Client cukup memakai `venueCode` + `fieldCode`, contoh `albatros` + `lapang_1`.
 
 ## Alias Lapang
 
-Gunakan alias berikut di semua komunikasi antar sistem:
+Untuk compatibility dengan prototype, alias tetap bisa dipakai dengan pola:
+
+```text
+{venueCode}_{fieldCode}
+```
+
+Contoh:
 
 | Venue | Lapang | Alias | Tuya Channel Internal |
 |---|---|---|---|
 | Albatros | Lapang 1 | `albatros_lapang_1` | `switch_1` |
 | Albatros | Lapang 2 | `albatros_lapang_2` | `switch_2` |
+| Albatros | Lapang 3 | `albatros_lapang_3` | `switch_1` |
+| Albatros | Lapang 4 | `albatros_lapang_4` | `switch_2` |
+| Albatros | Lapang 5 | `albatros_lapang_5` | `switch_1` |
+| Albatros | Lapang 6 | `albatros_lapang_6` | `switch_2` |
+| Melati | Lapang 1 | `melati_lapang_1` | `switch_1` |
+| Melati | Lapang 4 | `melati_lapang_4` | `switch_2` |
 
 Mapping internal backend:
 
 ```text
-albatros_lapang_1 -> device Tuya Bardi 2 Gang + switch_1
-albatros_lapang_2 -> device Tuya Bardi 2 Gang + switch_2
+albatros_lapang_1 -> device A + switch_1
+albatros_lapang_2 -> device A + switch_2
+albatros_lapang_3 -> device B + switch_1
+albatros_lapang_4 -> device B + switch_2
+albatros_lapang_5 -> device C + switch_1
+albatros_lapang_6 -> device C + switch_2
 ```
 
 Device ID Tuya asli tetap disimpan di konfigurasi internal backend AWS.
+
+## Rekomendasi Schema Database Production
+
+Gunakan database sebagai sumber mapping, bukan hardcode di aplikasi.
+
+```text
+venues
+- id
+- code              contoh: albatros
+- name              contoh: Albatros
+- timezone          contoh: Asia/Jakarta
+- active
+
+fields
+- id
+- venue_id
+- code              contoh: lapang_1
+- number            contoh: 1
+- name              contoh: Lapang 1
+- active
+
+field_light_bindings
+- id
+- field_id
+- provider          contoh: tuya
+- device_id         device ID asli, internal backend saja
+- dp_code           switch_1 / switch_2
+- active
+
+bookings
+- id
+- external_booking_id
+- field_id
+- start_at
+- end_at
+- status            scheduled / active / finished / cancelled
+
+light_events
+- id
+- booking_id
+- field_id
+- action            turn_on / turn_off / enforce_on
+- success
+- error_message
+- created_at
+```
+
+Untuk Bardi 2 Gang:
+
+```text
+jumlah_device = ceil(jumlah_lapang / 2)
+```
+
+Contoh:
+
+| Venue | Jumlah lapang | Estimasi Bardi 2 Gang |
+|---|---:|---:|
+| Melati | 4 | 2 device |
+| Albatros | 6 | 3 device |
+| Cihuni | 8 | 4 device |
 
 ## Environment Backend AWS
 
@@ -110,6 +221,50 @@ Contoh konsep data:
 ```
 
 Untuk response API publik, jangan mengirim `tuyaDeviceId`.
+
+## Kontrak Booking Dari Flutter/Swing
+
+Request production yang disarankan:
+
+```json
+{
+  "bookingId": "swing_booking_123",
+  "venueCode": "albatros",
+  "fieldCode": "lapang_1",
+  "fieldNumber": 1,
+  "startAt": "2026-07-02T19:00:00+07:00",
+  "endAt": "2026-07-02T20:00:00+07:00",
+  "timezone": "Asia/Jakarta"
+}
+```
+
+Untuk booking multi-slot:
+
+```json
+{
+  "bookingId": "swing_booking_123",
+  "venueCode": "albatros",
+  "fieldCode": "lapang_1",
+  "fieldNumber": 1,
+  "slots": [
+    {
+      "startAt": "2026-07-02T19:00:00+07:00",
+      "endAt": "2026-07-02T20:00:00+07:00"
+    },
+    {
+      "startAt": "2026-07-02T20:00:00+07:00",
+      "endAt": "2026-07-02T21:00:00+07:00"
+    }
+  ]
+}
+```
+
+Catatan:
+
+- `fieldCode` wajib memakai format `lapang_N`.
+- Jangan kirim device ID Tuya dari Flutter.
+- Jangan kirim DP code Tuya seperti `switch_1` dari Flutter.
+- Label tampilan di aplikasi boleh berbeda, tetapi kontrak backend tetap memakai konsep lapang.
 
 ## Auth
 
@@ -612,7 +767,7 @@ Contoh status HTTP:
 ## Checklist Implementasi AWS
 
 - [ ] Simpan Tuya credential di secret manager.
-- [ ] Buat mapping field alias Albatros.
+- [ ] Buat mapping venue, lapang, dan field alias untuk semua venue.
 - [ ] Implement Tuya token caching.
 - [ ] Implement Tuya HMAC signing.
 - [ ] Implement endpoint `GET /api/fields`.

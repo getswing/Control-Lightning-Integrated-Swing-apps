@@ -1,6 +1,6 @@
 [
   {
-    "id": "tuya_device_id_disimpan_di_backend",
+    "id": "tuya_device_a_disimpan_di_backend",
     "alias": "albatros_lapang_1",
     "venue": "Albatros",
     "field": "Lapang 1",
@@ -9,11 +9,47 @@
     "code": "switch_1"
   },
   {
-    "id": "tuya_device_id_disimpan_di_backend",
+    "id": "tuya_device_a_disimpan_di_backend",
     "alias": "albatros_lapang_2",
     "venue": "Albatros",
     "field": "Lapang 2",
     "name": "Albatros - Lapang 2",
+    "room": "Albatros",
+    "code": "switch_2"
+  },
+  {
+    "id": "tuya_device_b_disimpan_di_backend",
+    "alias": "albatros_lapang_3",
+    "venue": "Albatros",
+    "field": "Lapang 3",
+    "name": "Albatros - Lapang 3",
+    "room": "Albatros",
+    "code": "switch_1"
+  },
+  {
+    "id": "tuya_device_b_disimpan_di_backend",
+    "alias": "albatros_lapang_4",
+    "venue": "Albatros",
+    "field": "Lapang 4",
+    "name": "Albatros - Lapang 4",
+    "room": "Albatros",
+    "code": "switch_2"
+  },
+  {
+    "id": "tuya_device_c_disimpan_di_backend",
+    "alias": "albatros_lapang_5",
+    "venue": "Albatros",
+    "field": "Lapang 5",
+    "name": "Albatros - Lapang 5",
+    "room": "Albatros",
+    "code": "switch_1"
+  },
+  {
+    "id": "tuya_device_c_disimpan_di_backend",
+    "alias": "albatros_lapang_6",
+    "venue": "Albatros",
+    "field": "Lapang 6",
+    "name": "Albatros - Lapang 6",
     "room": "Albatros",
     "code": "switch_2"
   }
