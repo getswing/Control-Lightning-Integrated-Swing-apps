@@ -17,6 +17,10 @@ const SCHEDULES_FILE = path.join(__dirname, "data", "schedules.json");
 const BOOKINGS_FILE = path.join(__dirname, "data", "bookings.json");
 const SWITCH_CODE = process.env.TUYA_SWITCH_CODE || "switch_led";
 const BRIGHTNESS_CODE = process.env.TUYA_BRIGHTNESS_CODE || "bright_value_v2";
+const APP_PASSWORD = process.env.APP_PASSWORD || "";
+const APP_SESSION_SECRET = process.env.APP_SESSION_SECRET || TUYA_CLIENT_SECRET || crypto.randomBytes(32).toString("hex");
+const SESSION_COOKIE = "tuya_light_session";
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
 let tokenCache = { accessToken: "", expireAt: 0 };
 let lastAutomationMinute = "";
@@ -27,6 +31,16 @@ const server = http.createServer(async (req, res) => {
 
     if (url.pathname.startsWith("/api/")) {
       await handleApi(req, res, url);
+      return;
+    }
+
+    if (url.pathname === "/" && !isAuthenticated(req)) {
+      redirect(res, "/login.html");
+      return;
+    }
+
+    if (url.pathname === "/login.html" && isAuthenticated(req)) {
+      redirect(res, "/");
       return;
     }
 
@@ -44,9 +58,113 @@ setInterval(() => {
   runAutomation().catch((error) => {
     console.error("Automation error:", error.message);
   });
-}, 15_000);
+}, 5_000);
 
 async function handleApi(req, res, url) {
+  if (req.method === "GET" && url.pathname === "/api/auth/status") {
+    sendJson(res, 200, {
+      ok: true,
+      authenticated: isAuthenticated(req),
+      loginEnabled: Boolean(APP_PASSWORD)
+    });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/auth/login") {
+    const body = await readBody(req);
+    if (!APP_PASSWORD) {
+      sendJson(res, 503, { ok: false, error: "APP_PASSWORD belum diisi di .env" });
+      return;
+    }
+
+    if (!safeEqual(String(body.password || ""), APP_PASSWORD)) {
+      sendJson(res, 401, { ok: false, error: "Password salah" });
+      return;
+    }
+
+    setSessionCookie(res);
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/auth/logout") {
+    clearSessionCookie(res);
+    sendJson(res, 200, { ok: true });
+    return;
+  }
+
+  if (!isAuthenticated(req)) {
+    sendJson(res, 401, { ok: false, error: "Login diperlukan" });
+    return;
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/fields") {
+    const fields = await readLights();
+    const statuses = await Promise.all(fields.map(async (field) => {
+      try {
+        const status = await getDeviceStatus(field.id);
+        return publicField(field, status);
+      } catch (error) {
+        return { ...publicField(field, []), online: false, error: error.message };
+      }
+    }));
+    sendJson(res, 200, { ok: true, fields: statuses });
+    return;
+  }
+
+  const fieldToggleMatch = url.pathname.match(/^\/api\/fields\/([^/]+)\/toggle$/);
+  if (req.method === "POST" && fieldToggleMatch) {
+    const field = await findFieldByAlias(fieldToggleMatch[1]);
+    const body = await readBody(req);
+    const result = await sendTuyaCommands(field.id, [{ code: field.code || SWITCH_CODE, value: Boolean(body.on) }]);
+    sendJson(res, 200, { ok: true, field: publicField(field), result });
+    return;
+  }
+
+  const fieldStatusMatch = url.pathname.match(/^\/api\/fields\/([^/]+)\/status$/);
+  if (req.method === "GET" && fieldStatusMatch) {
+    const field = await findFieldByAlias(fieldStatusMatch[1]);
+    const status = await getDeviceStatus(field.id);
+    sendJson(res, 200, { ok: true, field: publicField(field, status) });
+    return;
+  }
+
+  const fieldBookingMatch = url.pathname.match(/^\/api\/fields\/([^/]+)\/bookings$/);
+  if (req.method === "POST" && fieldBookingMatch) {
+    const field = await findFieldByAlias(fieldBookingMatch[1]);
+    const body = await readBody(req);
+    const bookings = await readBookings();
+    const booking = normalizeBooking({
+      ...body,
+      deviceId: field.id,
+      code: field.code || SWITCH_CODE,
+      fieldAlias: field.alias,
+      title: body.title || `${field.name} Booking`
+    });
+    ensureNoBookingOverlap(bookings, booking);
+    bookings.push(booking);
+    await writeBookings(bookings);
+    sendJson(res, 201, { ok: true, booking: publicBooking(booking, field) });
+    return;
+  }
+
+  const fieldScheduleMatch = url.pathname.match(/^\/api\/fields\/([^/]+)\/schedules$/);
+  if (req.method === "POST" && fieldScheduleMatch) {
+    const field = await findFieldByAlias(fieldScheduleMatch[1]);
+    const body = await readBody(req);
+    const schedules = await readSchedules();
+    const schedule = normalizeSchedule({
+      ...body,
+      deviceId: field.id,
+      code: field.code || SWITCH_CODE,
+      fieldAlias: field.alias
+    });
+    schedules.push(schedule);
+    await writeSchedules(schedules);
+    sendJson(res, 201, { ok: true, schedule: publicSchedule(schedule, field) });
+    return;
+  }
+
   if (req.method === "GET" && url.pathname === "/api/config") {
     const lights = await readLights();
     sendJson(res, 200, {
@@ -305,7 +423,8 @@ function normalizeSchedule(body) {
     action: body.action,
     days,
     enabled: body.enabled !== false,
-    code: body.code || SWITCH_CODE
+    code: body.code || SWITCH_CODE,
+    fieldAlias: body.fieldAlias || ""
   };
 }
 
@@ -336,6 +455,7 @@ function normalizeBooking(body) {
     endTime: body.endTime,
     enabled: body.enabled !== false,
     code: body.code || SWITCH_CODE,
+    fieldAlias: body.fieldAlias || "",
     startedAt: "",
     endedAt: "",
     createdAt: new Date().toISOString()
@@ -347,6 +467,7 @@ function ensureNoBookingOverlap(bookings, nextBooking) {
   const nextEnd = bookingEndMinute(nextBooking);
   const overlap = bookings.find((booking) => {
     if (!booking.enabled || booking.deviceId !== nextBooking.deviceId) return false;
+    if ((booking.code || SWITCH_CODE) !== (nextBooking.code || SWITCH_CODE)) return false;
     const start = bookingStartMinute(booking);
     const end = bookingEndMinute(booking);
     return nextStart < end && start < nextEnd;
@@ -391,13 +512,70 @@ async function readLights() {
     return [
       {
         id: defaultDeviceId,
+        alias: process.env.TUYA_DEFAULT_FIELD_ALIAS || "default_field",
+        venue: process.env.TUYA_DEFAULT_VENUE || "Default Venue",
+        field: process.env.TUYA_DEFAULT_FIELD_NAME || "Default Field",
         name: process.env.TUYA_DEFAULT_DEVICE_NAME || "Lampu Tuya",
-        room: process.env.TUYA_DEFAULT_ROOM || "Utama"
+        room: process.env.TUYA_DEFAULT_ROOM || "Utama",
+        code: SWITCH_CODE
       }
     ];
   }
 
   return lights;
+}
+
+async function findFieldByAlias(alias) {
+  const fields = await readLights();
+  const field = fields.find((item) => item.alias === alias);
+  if (!field) {
+    throw new Error(`Field alias tidak ditemukan: ${alias}`);
+  }
+  return field;
+}
+
+function publicField(field, status = []) {
+  const code = field.code || SWITCH_CODE;
+  const value = status.find((item) => item.code === code)?.value;
+  return {
+    alias: field.alias,
+    venue: field.venue,
+    field: field.field,
+    name: field.name,
+    code,
+    online: status.length > 0,
+    on: value === true
+  };
+}
+
+function publicBooking(booking, field) {
+  return {
+    id: booking.id,
+    fieldAlias: booking.fieldAlias || field?.alias || "",
+    venue: field?.venue || "",
+    field: field?.field || "",
+    title: booking.title,
+    date: booking.date,
+    startTime: booking.startTime,
+    endDate: booking.endDate,
+    endTime: booking.endTime,
+    enabled: booking.enabled,
+    startedAt: booking.startedAt,
+    endedAt: booking.endedAt
+  };
+}
+
+function publicSchedule(schedule, field) {
+  return {
+    id: schedule.id,
+    fieldAlias: schedule.fieldAlias || field?.alias || "",
+    venue: field?.venue || "",
+    field: field?.field || "",
+    time: schedule.time,
+    action: schedule.action,
+    days: schedule.days,
+    enabled: schedule.enabled
+  };
 }
 
 async function readSchedules() {
@@ -433,6 +611,60 @@ function sendJson(res, status, data) {
 function sendText(res, status, text) {
   res.writeHead(status, { "Content-Type": "text/plain; charset=utf-8" });
   res.end(text);
+}
+
+function redirect(res, location) {
+  res.writeHead(302, { "Location": location });
+  res.end();
+}
+
+function isAuthenticated(req) {
+  const token = parseCookies(req.headers.cookie || "")[SESSION_COOKIE];
+  if (!token) return false;
+
+  const [expiresText, nonce, signature] = token.split(".");
+  const expires = Number(expiresText);
+  if (!expires || !nonce || !signature || Date.now() > expires) return false;
+
+  const expected = signSession(`${expiresText}.${nonce}`);
+  return safeEqual(signature, expected);
+}
+
+function setSessionCookie(res) {
+  const expires = Date.now() + SESSION_TTL_MS;
+  const nonce = crypto.randomBytes(16).toString("hex");
+  const payload = `${expires}.${nonce}`;
+  const token = `${payload}.${signSession(payload)}`;
+  const cookie = [
+    `${SESSION_COOKIE}=${token}`,
+    "Path=/",
+    "HttpOnly",
+    "SameSite=Lax",
+    `Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`
+  ].join("; ");
+  res.setHeader("Set-Cookie", cookie);
+}
+
+function clearSessionCookie(res) {
+  res.setHeader("Set-Cookie", `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+}
+
+function signSession(payload) {
+  return crypto.createHmac("sha256", APP_SESSION_SECRET).update(payload).digest("hex");
+}
+
+function parseCookies(header) {
+  return Object.fromEntries(header.split(";").map((part) => {
+    const [key, ...value] = part.trim().split("=");
+    return [key, value.join("=")];
+  }).filter(([key]) => key));
+}
+
+function safeEqual(left, right) {
+  const leftBuffer = Buffer.from(left);
+  const rightBuffer = Buffer.from(right);
+  if (leftBuffer.length !== rightBuffer.length) return false;
+  return crypto.timingSafeEqual(leftBuffer, rightBuffer);
 }
 
 function resolveAppPath(value) {

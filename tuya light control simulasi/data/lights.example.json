@@ -1,0 +1,20 @@
+[
+  {
+    "id": "tuya_device_id_disimpan_di_backend",
+    "alias": "albatros_lapang_1",
+    "venue": "Albatros",
+    "field": "Lapang 1",
+    "name": "Albatros - Lapang 1",
+    "room": "Albatros",
+    "code": "switch_1"
+  },
+  {
+    "id": "tuya_device_id_disimpan_di_backend",
+    "alias": "albatros_lapang_2",
+    "venue": "Albatros",
+    "field": "Lapang 2",
+    "name": "Albatros - Lapang 2",
+    "room": "Albatros",
+    "code": "switch_2"
+  }
+]

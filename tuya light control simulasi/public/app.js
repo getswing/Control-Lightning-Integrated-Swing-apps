@@ -19,10 +19,12 @@ const refreshBtn = document.querySelector("#refreshBtn");
 const bookingForm = document.querySelector("#bookingForm");
 const bookingDevice = document.querySelector("#bookingDevice");
 const bookingList = document.querySelector("#bookingList");
+const logoutBtn = document.querySelector("#logoutBtn");
 
 refreshBtn.addEventListener("click", refreshStatus);
 scheduleForm.addEventListener("submit", addSchedule);
 bookingForm.addEventListener("submit", addBooking);
+logoutBtn.addEventListener("click", logout);
 
 boot();
 
@@ -41,10 +43,12 @@ async function loadConfig() {
   state.supportsBrightness = Boolean(config.supportsBrightness);
   cloudStatus.textContent = config.configured ? "Cloud siap" : ".env kosong";
   cloudStatus.className = `status-pill ${config.configured ? "ready" : "missing"}`;
-  scheduleDevice.innerHTML = state.lights.map((light) => (
-    `<option value="${escapeHtml(light.id)}">${escapeHtml(light.name)}</option>`
+
+  const options = state.lights.map((light) => (
+    `<option value="${escapeHtml(optionValue(light))}">${escapeHtml(light.name)}</option>`
   )).join("");
-  bookingDevice.innerHTML = scheduleDevice.innerHTML;
+  scheduleDevice.innerHTML = options;
+  bookingDevice.innerHTML = options;
 }
 
 async function refreshStatus() {
@@ -78,7 +82,8 @@ function renderDevices(error) {
   }
 
   deviceGrid.innerHTML = state.devices.map((device) => {
-    const isOn = readStatus(device, state.switchCode) === true;
+    const code = device.code || state.switchCode;
+    const isOn = readStatus(device, code) === true;
     const brightness = Number(readStatus(device, state.brightnessCode) || readStatus(device, "bright_value") || 500);
     const brightnessControl = state.supportsBrightness ? `
         <div class="brightness">
@@ -89,15 +94,16 @@ function renderDevices(error) {
           <input type="range" min="10" max="1000" value="${brightness}" step="10" onchange="setBrightness('${escapeAttr(device.id)}', this.value)">
         </div>
       ` : "";
+
     return `
       <article class="device-card">
         <div class="device-row">
           <div>
             <h2>${escapeHtml(device.name)}</h2>
-            <p class="room">${escapeHtml(device.room || "Tanpa ruangan")} · ${device.online ? "online" : "perlu cek"}</p>
+            <p class="room">${escapeHtml(device.room || "Tanpa ruangan")} - ${escapeHtml(code)} - ${device.online ? "online" : "perlu cek"}</p>
           </div>
           <label class="switch" title="Nyalakan atau matikan lampu">
-            <input type="checkbox" ${isOn ? "checked" : ""} onchange="toggleLight('${escapeAttr(device.id)}', this.checked)">
+            <input type="checkbox" ${isOn ? "checked" : ""} onchange="toggleLight('${escapeAttr(device.id)}', this.checked, '${escapeAttr(code)}')">
             <span></span>
           </label>
         </div>
@@ -123,13 +129,13 @@ function renderSchedules() {
   }
 
   scheduleList.innerHTML = state.schedules.map((schedule) => {
-    const light = state.lights.find((item) => item.id === schedule.deviceId);
+    const light = findLight(schedule.deviceId, schedule.code);
     const days = schedule.days.map((day) => dayNames[day]).join(", ");
     return `
       <div class="schedule-item">
         <div>
-          <strong>${schedule.time} · ${schedule.action.toUpperCase()}</strong>
-          <small>${escapeHtml(light?.name || schedule.deviceId)} · ${days}</small>
+          <strong>${schedule.time} - ${schedule.action.toUpperCase()}</strong>
+          <small>${escapeHtml(light?.name || schedule.deviceId)} - ${days}</small>
         </div>
         <button class="delete" onclick="deleteSchedule('${escapeAttr(schedule.id)}')">Hapus</button>
       </div>
@@ -148,7 +154,7 @@ function renderBookings() {
   }
 
   bookingList.innerHTML = sorted.map((booking) => {
-    const light = state.lights.find((item) => item.id === booking.deviceId);
+    const light = findLight(booking.deviceId, booking.code);
     const endDate = booking.endDate && booking.endDate !== booking.date ? ` ${booking.endDate}` : "";
     const progress = booking.endedAt
       ? `<small class="done">Selesai</small>`
@@ -173,11 +179,13 @@ function renderBookings() {
 async function addSchedule(event) {
   event.preventDefault();
   const form = new FormData(scheduleForm);
+  const selected = selectedLight(scheduleDevice);
   const days = [...dayPicker.querySelectorAll("input:checked")].map((input) => Number(input.value));
   await api("/api/schedules", {
     method: "POST",
     body: JSON.stringify({
-      deviceId: scheduleDevice.value,
+      deviceId: selected.id,
+      code: selected.code,
       time: document.querySelector("#scheduleTime").value,
       action: form.get("action"),
       days
@@ -190,11 +198,13 @@ async function addSchedule(event) {
 
 async function addBooking(event) {
   event.preventDefault();
+  const selected = selectedLight(bookingDevice);
   await api("/api/bookings", {
     method: "POST",
     body: JSON.stringify({
       title: document.querySelector("#bookingTitle").value,
-      deviceId: bookingDevice.value,
+      deviceId: selected.id,
+      code: selected.code,
       date: document.querySelector("#bookingDate").value,
       startTime: document.querySelector("#bookingStart").value,
       endTime: document.querySelector("#bookingEnd").value
@@ -205,10 +215,10 @@ async function addBooking(event) {
   await loadBookings();
 }
 
-async function toggleLight(deviceId, on) {
+async function toggleLight(deviceId, on, code = state.switchCode) {
   await api(`/api/lights/${encodeURIComponent(deviceId)}/toggle`, {
     method: "POST",
-    body: JSON.stringify({ on })
+    body: JSON.stringify({ on, code })
   });
   await refreshStatus();
 }
@@ -231,8 +241,27 @@ async function deleteBooking(id) {
   await loadBookings();
 }
 
+async function logout() {
+  await fetch("/api/auth/logout", { method: "POST" });
+  window.location.href = "/login.html";
+}
+
 function readStatus(device, code) {
   return device.status.find((item) => item.code === code)?.value;
+}
+
+function optionValue(light) {
+  return `${light.id}||${light.code || state.switchCode}`;
+}
+
+function selectedLight(select) {
+  const [id, code] = select.value.split("||");
+  return { id, code: code || state.switchCode };
+}
+
+function findLight(deviceId, code = state.switchCode) {
+  return state.lights.find((item) => item.id === deviceId && (item.code || state.switchCode) === (code || state.switchCode))
+    || state.lights.find((item) => item.id === deviceId);
 }
 
 async function api(path, options = {}) {
@@ -241,6 +270,10 @@ async function api(path, options = {}) {
     ...options
   });
   const data = await response.json();
+  if (response.status === 401) {
+    window.location.href = "/login.html";
+    throw new Error("Login diperlukan");
+  }
   if (!response.ok || data.ok === false) {
     throw new Error(data.error || "Request gagal");
   }

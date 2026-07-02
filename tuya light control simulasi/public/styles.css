@@ -44,6 +44,12 @@ select {
   margin-bottom: 20px;
 }
 
+.top-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .eyebrow {
   margin: 0 0 6px;
   color: var(--blue);
@@ -234,6 +240,7 @@ label {
 
 select,
 input[type="date"],
+input[type="password"],
 input[type="text"],
 input[type="time"] {
   width: 100%;
@@ -319,6 +326,44 @@ input[type="time"] {
   font-weight: 800;
 }
 
+.secondary {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  padding: 10px 12px;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.login-page {
+  display: grid;
+  place-items: center;
+}
+
+.login-shell {
+  width: min(420px, calc(100% - 28px));
+}
+
+.login-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  padding: 26px;
+}
+
+.login-panel h1 {
+  font-size: 34px;
+}
+
+.form-error {
+  min-height: 20px;
+  color: var(--red);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .schedule-list {
   display: grid;
   gap: 10px;
@@ -368,6 +413,11 @@ input[type="time"] {
   .topbar {
     align-items: start;
     flex-direction: column;
+  }
+
+  .top-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .layout {
